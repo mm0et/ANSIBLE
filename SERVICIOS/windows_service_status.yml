@@ -1,15 +1,29 @@
-- name: Comprobar estado de servicio Windows
+- name: Comprobar y asegurar servicio Windows en ejecución
   hosts: all
   gather_facts: no
 
   tasks:
-    - name: Obtener estado del servicio
+    - name: Consultar estado actual del servicio
       win_service:
         name: "{{ service_name }}"
-      register: service_info
+      register: initial_state
 
-    - name: Mostrar estado del servicio
+    - name: Arrancar el servicio si no está en running
+      win_service:
+        name: "{{ service_name }}"
+        state: started
+      when: initial_state.state != 'running'
+
+    - name: Reconsultar estado final del servicio
+      win_service:
+        name: "{{ service_name }}"
+      register: final_state
+
+    - name: Validar estado final
+      fail:
+        msg: "ERROR: El servicio {{ service_name }} NO está levantado (estado: {{ final_state.state }})"
+      when: final_state.state != 'running'
+
+    - name: Confirmar servicio levantado
       debug:
-        msg: >
-          El servicio {{ service_name }} está
-          {{ 'LEVANTADO' if service_info.state == 'running' else 'PARADO' }}
+        msg: "OK: El servicio {{ service_name }} está LEVANTADO"
