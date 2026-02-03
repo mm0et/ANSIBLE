@@ -1,0 +1,15 @@
+- name: Comprobar estado de servicio Windows
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Obtener estado del servicio
+      win_service:
+        name: "{{ service_name }}"
+      register: service_info
+
+    - name: Mostrar estado del servicio
+      debug:
+        msg: >
+          El servicio {{ service_name }} está
+          {{ 'LEVANTADO' if service_info.state == 'running' else 'PARADO' }}
