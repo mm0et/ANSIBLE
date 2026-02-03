@@ -1,0 +1,24 @@
+- name: Comprobar y arrancar SAPSprint
+  hosts: windows
+  gather_facts: no
+
+  tasks:
+    - name: Obtener info del servicio SAPSprint
+      ansible.windows.win_service_info:
+        name: SAPSprint
+      register: sapsprint_info
+
+    - name: Fallar si el servicio no existe
+      ansible.builtin.fail:
+        msg: "El servicio SAPSprint no existe en el sistema"
+      when: sapsprint_info.services | length == 0
+
+    - name: Mostrar estado actual
+      ansible.builtin.debug:
+        msg: "Estado actual SAPSprint: {{ sapsprint_info.services[0].state }}"
+
+    - name: Arrancar SAPSprint si no está corriendo
+      ansible.windows.win_service:
+        name: SAPSprint
+        state: started
+      when: sapsprint_info.services[0].state != "running"
