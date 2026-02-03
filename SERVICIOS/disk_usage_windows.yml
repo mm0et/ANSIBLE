@@ -1,5 +1,5 @@
 - name: Comprobar uso de disco y detectar mayor ocupación
-  hosts: windows
+  hosts: all
   gather_facts: no
 
   vars:
