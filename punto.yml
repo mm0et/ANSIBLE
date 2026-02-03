@@ -1,0 +1,83 @@
+---
+- name: Recuperación automática de puerto si el host no responde
+  hosts: sw_afsa_dist_ctrl
+  become: yes
+  gather_facts: yes
+
+  vars:
+    interface_name: "GigabitEthernet 0/0/2"
+    target_ip: "192.168.93.164"
+
+  tasks:
+
+    - name: Hacer ping al dispositivo final
+      command: ping -c 3 {{ target_ip }}
+      register: ping_result
+      ignore_errors: yes
+      delegate_to: localhost
+
+    - name: Mostrar resultado del ping
+      debug:
+        msg: >
+          Ping a {{ target_ip }}:
+          {{ 'OK' if ping_result.rc == 0 else 'SIN RESPUESTA' }}
+
+    - name: Ejecutar display interface en el switch
+      raw: display interface {{ interface_name }}
+      register: interface_output
+      when: ping_result.rc != 0
+
+    - name: Extraer estado del interface
+      set_fact:
+        interface_status: "{{ interface_output.stdout_lines[0].split(':')[1].strip() }}"
+      when: ping_result.rc != 0
+
+    - name: Mostrar estado actual del puerto
+      debug:
+        msg: "Estado actual del puerto {{ interface_name }}: {{ interface_status }}"
+      when: ping_result.rc != 0
+
+    - name: Bajar el puerto (shutdown)
+      raw: |
+        system-view
+        interface {{ interface_name }}
+        shutdown
+        quit
+        quit
+      when: ping_result.rc != 0
+
+    - name: Esperar 5 segundos
+      pause:
+        seconds: 5
+      when: ping_result.rc != 0
+
+    - name: Subir el puerto (no shutdown)
+      raw: |
+        system-view
+        interface {{ interface_name }}
+        undo shutdown
+        quit
+        quit
+      when: ping_result.rc != 0
+
+    - name: Notificar reinicio de puerto por Telegram
+      uri:
+        url: "https://api.telegram.org/bot{{ telegram_bot_token }}/sendMessage"
+        method: POST
+        body_format: json
+        body:
+          chat_id: "{{ telegram_chat_id }}"
+          text: |
+            🔄 Reinicio automático de puerto 🔄
+
+            Switch: {{ inventory_hostname }}
+            Puerto: {{ interface_name }}
+            IP monitoreada: {{ target_ip }}
+            Motivo: No responde al ping
+            Estado previo del puerto: {{ interface_status }}
+            Fecha: {{ ansible_date_time.iso8601 }}
+
+            Se realizó shutdown / no shutdown del puerto.
+        status_code: 200
+      when: ping_result.rc != 0
+      delegate_to: localhost
