@@ -1,34 +1,10 @@
-- name: Comprobar y asegurar servicios Windows en ejecución
+- name: Asegurar servicios Windows siempre levantados
   hosts: all
   gather_facts: no
 
   tasks:
-    - name: Procesar servicios en orden
-      block:
-
-        - name: Consultar estado actual del servicio {{ item }}
-          ansible.windows.win_service:
-            name: "{{ item }}"
-          register: initial_state
-
-        - name: Arrancar {{ item }} si no está en running
-          ansible.windows.win_service:
-            name: "{{ item }}"
-            state: started
-          when: initial_state.state != 'running'
-
-        - name: Reconsultar estado final de {{ item }}
-          ansible.windows.win_service:
-            name: "{{ item }}"
-          register: final_state
-
-        - name: Validar estado final de {{ item }}
-          fail:
-            msg: "ERROR: El servicio {{ item }} NO está levantado (estado: {{ final_state.state }})"
-          when: final_state.state != 'running'
-
-        - name: Confirmar {{ item }} levantado
-          debug:
-            msg: "OK: El servicio {{ item }} está LEVANTADO"
-
+    - name: Asegurar servicios en ejecución (ordenado)
+      ansible.windows.win_service:
+        name: "{{ item }}"
+        state: started
       loop: "{{ services_ordered }}"
