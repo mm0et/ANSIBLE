@@ -1,12 +1,16 @@
-- name: Asegurar servicios Windows siempre levantados
+- name: Asegurar servicios Windows y notificar solo si se levantan
   hosts: all
   gather_facts: no
 
   vars:
-    telegram_token: "{{ lookup('env','TELEGRAM_TOKEN') }}"
-    telegram_id: "{{ lookup('env','TELEGRAM_CHAT_ID') }}"
+    tz: "Europe/Madrid"
 
   tasks:
+
+    - name: Obtener fecha y hora (España)
+      set_fact:
+        current_datetime: "{{ lookup('pipe', 'TZ=' ~ tz ~ ' date +\"%d-%m-%Y %H:%M:%S\"') }}"
+
     - name: Asegurar servicios en ejecución
       ansible.windows.win_service:
         name: "{{ item }}"
@@ -15,7 +19,7 @@
       loop: "{{ services_ordered }}"
       register: servicios_resultado
 
-    - name: Detectar servicios que Ansible tuvo que levantar
+    - name: Normalizar resultados
       set_fact:
         servicios_levantados: >-
           {{ servicios_resultado.results
@@ -23,11 +27,23 @@
              | map(attribute='item')
              | list }}
 
-    - name: Notificar por Telegram SOLO si se levantaron servicios
-      community.general.telegram:
-        token: "{{ telegram_token }}"
-        chat_id: "{{ telegram_id }}"
-        msg: |
-          ⚠️ Ansible levantó servicios en {{ inventory_hostname }}:
-          {{ servicios_levantados | join(', ') }}
+    - name: Construir mensaje Telegram SOLO si hubo intervención
+      set_fact:
+        telegram_message: >-
+          ⚠️ Servicios levantados por Ansible
+          🖥️ {{ inventory_hostname }}
+          🕒 {{ current_datetime }}
+
+          {{ servicios_levantados | join('\n') }}
+      when: servicios_levantados | length > 0
+
+    - name: Enviar mensaje por Telegram
+      uri:
+        url: "https://api.telegram.org/bot{{ telegram_token }}/sendMessage"
+        method: POST
+        body_format: json
+        body:
+          chat_id: "{{ telegram_id }}"
+          text: "{{ telegram_message }}"
+        status_code: 200
       when: servicios_levantados | length > 0
