@@ -2,9 +2,32 @@
   hosts: all
   gather_facts: no
 
+  vars:
+    telegram_token: "{{ lookup('env','TELEGRAM_TOKEN') }}"
+    telegram_id: "{{ lookup('env','TELEGRAM_CHAT_ID') }}"
+
   tasks:
-    - name: Asegurar servicios en ejecución (ordenado)
+    - name: Asegurar servicios en ejecución
       ansible.windows.win_service:
         name: "{{ item }}"
         state: started
+        timeout: 60
       loop: "{{ services_ordered }}"
+      register: servicios_resultado
+
+    - name: Detectar servicios que Ansible tuvo que levantar
+      set_fact:
+        servicios_levantados: >-
+          {{ servicios_resultado.results
+             | selectattr('changed','equalto',true)
+             | map(attribute='item')
+             | list }}
+
+    - name: Notificar por Telegram SOLO si se levantaron servicios
+      community.general.telegram:
+        token: "{{ telegram_token }}"
+        chat_id: "{{ telegram_id }}"
+        msg: |
+          ⚠️ Ansible levantó servicios en {{ inventory_hostname }}:
+          {{ servicios_levantados | join(', ') }}
+      when: servicios_levantados | length > 0
