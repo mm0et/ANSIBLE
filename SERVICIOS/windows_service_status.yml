@@ -21,24 +21,11 @@
              | list }}
 
 - name: Enviar Telegram desde el controller SOLO si hubo cambios
-  hosts: localhost
+  hosts: 127.0.0.1
+  connection: local
   gather_facts: no
-  vars:
-    ansible_connection: local
-    ansible_shell_type: sh
-    ansible_shell_executable: /bin/sh
 
   tasks:
-    - name: Construir lista de hosts con servicios levantados
-      set_fact:
-        hosts_con_cambios: >-
-          {{
-            groups['all']
-            | select('in', hostvars.keys())
-            | selectattr('', 'defined')
-            | list
-          }}
-
     - name: Enviar Telegram (un mensaje por host que tuvo cambios)
       ansible.builtin.uri:
         url: "https://api.telegram.org/bot{{ telegram_token }}/sendMessage"
