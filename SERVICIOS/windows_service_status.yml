@@ -35,3 +35,5 @@
       when: servicios_levantados | length > 0
       delegate_to: localhost
       run_once: true
+      vars:
+        ansible_connection: local
