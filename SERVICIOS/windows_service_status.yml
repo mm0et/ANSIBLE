@@ -33,3 +33,5 @@
             {{ servicios_levantados | join(', ') }}
         status_code: 200
       when: servicios_levantados | length > 0
+      delegate_to: localhost
+      run_once: true
