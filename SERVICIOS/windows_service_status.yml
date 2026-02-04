@@ -1,10 +1,9 @@
 ---
-- name: Levantar servicios Windows y notificar solo si se levantan
+- name: Levantar servicios Windows y guardar los que se levantaron
   hosts: all
   gather_facts: no
 
   tasks:
-
     - name: Asegurar servicios en ejecución
       ansible.windows.win_service:
         name: "{{ item }}"
@@ -21,17 +20,37 @@
              | map(attribute='item')
              | list }}
 
-    - name: Enviar notificación por Telegram SOLO si se levantaron servicios
-      local_action:
-        module: uri
+- name: Enviar Telegram desde el controller SOLO si hubo cambios
+  hosts: localhost
+  gather_facts: no
+  vars:
+    ansible_connection: local
+    ansible_shell_type: sh
+    ansible_shell_executable: /bin/sh
+
+  tasks:
+    - name: Construir lista de hosts con servicios levantados
+      set_fact:
+        hosts_con_cambios: >-
+          {{
+            groups['all']
+            | select('in', hostvars.keys())
+            | selectattr('', 'defined')
+            | list
+          }}
+
+    - name: Enviar Telegram (un mensaje por host que tuvo cambios)
+      ansible.builtin.uri:
         url: "https://api.telegram.org/bot{{ telegram_token }}/sendMessage"
         method: POST
         body_format: json
         body:
           chat_id: "{{ telegram_id }}"
           text: |
-            ⚠️ Ansible levantó servicios en {{ inventory_hostname }}:
-            {{ servicios_levantados | join(', ') }}
+            ⚠️ Ansible levantó servicios en {{ item }}:
+            {{ hostvars[item].servicios_levantados | join(', ') }}
         status_code: 200
-      when: servicios_levantados | length > 0
-      run_once: true
+      loop: "{{ groups['all'] }}"
+      when:
+        - hostvars[item].servicios_levantados is defined
+        - hostvars[item].servicios_levantados | length > 0
