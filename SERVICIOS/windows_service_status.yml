@@ -1,5 +1,5 @@
 ---
-- name: Levantar servicios Windows y guardar los que se levantaron
+- name: Levantar servicios Windows y notificar solo si se levantan
   hosts: all
   gather_facts: no
 
@@ -20,13 +20,7 @@
              | map(attribute='item')
              | list }}
 
-- name: Enviar Telegram desde el controller SOLO si hubo cambios
-  hosts: 127.0.0.1
-  connection: local
-  gather_facts: no
-
-  tasks:
-    - name: Enviar Telegram (un mensaje por host que tuvo cambios)
+    - name: Enviar Telegram SOLO si se levantaron servicios (desde AWX controller)
       ansible.builtin.uri:
         url: "https://api.telegram.org/bot{{ telegram_token }}/sendMessage"
         method: POST
@@ -34,10 +28,12 @@
         body:
           chat_id: "{{ telegram_id }}"
           text: |
-            ⚠️ Ansible levantó servicios en {{ item }}:
-            {{ hostvars[item].servicios_levantados | join(', ') }}
+            ⚠️ Ansible levantó servicios en {{ inventory_hostname }}:
+            {{ servicios_levantados | join(', ') }}
         status_code: 200
-      loop: "{{ groups['all'] }}"
-      when:
-        - hostvars[item].servicios_levantados is defined
-        - hostvars[item].servicios_levantados | length > 0
+      when: servicios_levantados | length > 0
+      delegate_to: 127.0.0.1
+      vars:
+        ansible_connection: local
+        ansible_shell_type: sh
+        ansible_shell_executable: /bin/sh
