@@ -1,3 +1,4 @@
+---
 - name: Asegurar servicios Windows y notificar solo si se levantan
   hosts: all
   gather_facts: no
@@ -15,11 +16,10 @@
       ansible.windows.win_service:
         name: "{{ item }}"
         state: started
-        timeout: 60
       loop: "{{ services_ordered }}"
       register: servicios_resultado
 
-    - name: Normalizar resultados
+    - name: Detectar servicios que Ansible tuvo que levantar
       set_fact:
         servicios_levantados: >-
           {{ servicios_resultado.results
