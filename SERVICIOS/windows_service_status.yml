@@ -1,11 +1,35 @@
 ---
-- name: Levantar servicios Windows
+- name: Levantar servicios Windows y notificar solo si se levantan
   hosts: all
   gather_facts: no
 
   tasks:
+
     - name: Asegurar servicios en ejecución
       ansible.windows.win_service:
         name: "{{ item }}"
         state: started
       loop: "{{ services_ordered }}"
+      register: servicios_resultado
+      ignore_errors: true
+
+    - name: Detectar servicios levantados por Ansible
+      set_fact:
+        servicios_levantados: >-
+          {{ servicios_resultado.results
+             | selectattr('changed','equalto',true)
+             | map(attribute='item')
+             | list }}
+
+    - name: Enviar notificación por Telegram SOLO si se levantaron servicios
+      uri:
+        url: "https://api.telegram.org/bot{{ telegram_token }}/sendMessage"
+        method: POST
+        body_format: json
+        body:
+          chat_id: "{{ telegram_id }}"
+          text: |
+            ⚠️ Ansible levantó servicios en {{ inventory_hostname }}:
+            {{ servicios_levantados | join(', ') }}
+        status_code: 200
+      when: servicios_levantados | length > 0
