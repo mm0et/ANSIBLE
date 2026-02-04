@@ -1,49 +1,11 @@
 ---
-- name: Asegurar servicios Windows y notificar solo si se levantan
+- name: Levantar servicios Windows
   hosts: all
   gather_facts: no
 
-  vars:
-    tz: "Europe/Madrid"
-
   tasks:
-
-    - name: Obtener fecha y hora (España)
-      set_fact:
-        current_datetime: "{{ lookup('pipe', 'TZ=' ~ tz ~ ' date +\"%d-%m-%Y %H:%M:%S\"') }}"
-
     - name: Asegurar servicios en ejecución
       ansible.windows.win_service:
         name: "{{ item }}"
         state: started
       loop: "{{ services_ordered }}"
-      register: servicios_resultado
-
-    - name: Detectar servicios que Ansible tuvo que levantar
-      set_fact:
-        servicios_levantados: >-
-          {{ servicios_resultado.results
-             | selectattr('changed','equalto',true)
-             | map(attribute='item')
-             | list }}
-
-    - name: Construir mensaje Telegram SOLO si hubo intervención
-      set_fact:
-        telegram_message: >-
-          ⚠️ Servicios levantados por Ansible
-          🖥️ {{ inventory_hostname }}
-          🕒 {{ current_datetime }}
-
-          {{ servicios_levantados | join('\n') }}
-      when: servicios_levantados | length > 0
-
-    - name: Enviar mensaje por Telegram
-      uri:
-        url: "https://api.telegram.org/bot{{ telegram_token }}/sendMessage"
-        method: POST
-        body_format: json
-        body:
-          chat_id: "{{ telegram_id }}"
-          text: "{{ telegram_message }}"
-        status_code: 200
-      when: servicios_levantados | length > 0
