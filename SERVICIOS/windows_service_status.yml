@@ -28,8 +28,17 @@
         body:
           chat_id: "{{ telegram_id }}"
           text: |
-            ⚠️ Ansible levantó servicios en {{ inventory_hostname }}:
-            {{ servicios_levantados | join(', ') }}
+            🚨 *Acción automática de Ansible*
+            
+            🖥 Host: *{{ inventory_hostname }}*
+            🔧 Servicios levantados: *{{ servicios_levantados | length }}*
+            
+            ✅ Estado final: *RUNNING*
+            
+            📋 Detalle:
+            {% for s in servicios_levantados %}
+            • {{ s }}
+            {% endfor %}
         status_code: 200
       when: servicios_levantados | length > 0
       delegate_to: 127.0.0.1
