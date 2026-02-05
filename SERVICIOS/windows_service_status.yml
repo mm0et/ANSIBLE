@@ -27,18 +27,20 @@
         body_format: json
         body:
           chat_id: "{{ telegram_id }}"
+          parse_mode: Markdown
           text: |
             🚨 *Acción automática de Ansible*
-            
-            🖥 Host: *{{ inventory_hostname }}*
-            🔧 Servicios levantados: *{{ servicios_levantados | length }}*
-            
-            ✅ Estado final: *RUNNING*
-            
-            📋 Detalle:
+
+            🖥 *Host:* {{ inventory_hostname }}
+            🔧 *Servicios levantados:* {{ servicios_levantados | length }}
+            ✅ *Estado final:* RUNNING
+
+            📋 *Detalle:*
             {% for s in servicios_levantados %}
             • {{ s }}
             {% endfor %}
+
+            ⏱ {{ lookup('pipe','date "+%Y-%m-%d %H:%M:%S"') }}
         status_code: 200
       when: servicios_levantados | length > 0
       delegate_to: 127.0.0.1
